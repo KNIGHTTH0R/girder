@@ -57,17 +57,16 @@ class DicomItem(Resource):
     def storeMetaData(self, item):
         # The goal is to store extract common tag of dicom files
         # to store them into the dicom item as metadata
-        item = _1extractMetadata(item)
-        item = _2extractCommonMetadata(item)
-        return item
+        item = _extractMetadata(item)
+        item = _extractCommonMetadata(item)
+        return ModelImporter.model('item').save(item)
 
 
-def _1extractMetadata(item):
+def _extractMetadata(item):
     item['dicomMeta'] = {}
     item['dicomFiles'] = []
-
     for file in ModelImporter.model('item').childFiles(item):
-        if not isDicom(file):
+        if not _isDicom(file):
             continue
         fileMeta = parse_file(file)
         item['dicomFiles'].append({
@@ -76,21 +75,23 @@ def _1extractMetadata(item):
         })
     return item
 
-def isDicom(file):
+
+def _isDicom(file):
     if file.get('dicom'):
         return True
     return False
 
-def _2extractCommonMetadata(item):
+
+def _extractCommonMetadata(item):
     # find the common data
     oldKey = []
-    oldValue  = []
+    oldValue = []
     uniqueMetadata = []
     commonMetadata = []
     uniqueListMetadata = []
     for file in item['dicomFiles']:
         meta = file['meta']
-        # FIRST FILE AS REFERENCE
+        # The first file is took as reference
         if not oldKey and not oldValue:
             for k, v in meta.iteritems():
                 oldKey.append(k)
@@ -100,38 +101,40 @@ def _2extractCommonMetadata(item):
                 lgtV = len(commonMetadata)
                 for j in oldValue:
                     if j == v:
-                        commonMetadata.append({k:v})
+                        commonMetadata.append({k: v})
                 if lgtV == len(commonMetadata):
-                    uniqueMetadata.append({k:v})
-            uniqueListMetadata.append(listToDict(uniqueMetadata))
+                    uniqueMetadata.append({k: v})
+            uniqueListMetadata.append(_listToDict(uniqueMetadata))
             uniqueMetadata = []
     # Store common tags and values
-    commonMetadataSet = setListObject(commonMetadata)
-    item['dicomMeta'] = listToDict(commonMetadataSet)
+    commonMetadataSet = _setListObject(commonMetadata)
+    item['dicomMeta'] = _listToDict(commonMetadataSet)
     # Store list of different tags per files
     item['dicomFiles'] = uniqueListMetadata
     return item
 
-def listToDict(list):  # To implement inside the function 2
+
+def _listToDict(list):  # To implement inside the function 2
     dict = {}
     for e in list:
         for k in e.keys():
-            dict.setdefault(k,e[k])
+            dict.setdefault(k, e[k])
     return dict
 
 
-def setListObject(listObject):
+def _setListObject(listObject):
     # Delete all the redundante object from the list
-    for i in range(0,len(listObject)-1):
+    for i in range(0, len(listObject)-1):
         removeObject = []
-        for j in range(i+1,len(listObject)):
+        for j in range(i+1, len(listObject)):
             if listObject[i] == listObject[j]:
                 removeObject.append(j)
-        for k in range(0,len(removeObject)):
+        for k in range(0, len(removeObject)):
             listObject.pop(removeObject[k])
-            for h in range(0,len(removeObject)):
+            for h in range(0, len(removeObject)):
                 removeObject[h] -= 1
     return listObject
+
 
 def sort_key(f):
     dicom = f.get('dicom', {})
@@ -191,6 +194,10 @@ def parse_file(f):
 
 def process_file(f):
     f['dicom'] = parse_file(f)
+    # We could do the traitment here but we need to change it
+    # - _extractMetadata(item)
+    # - _extractCommonMetadata(item)
+    # Call each time a new file is upload, we don't need that, only when the complete item is upload
     return ModelImporter.model('file').save(f)
 
 
