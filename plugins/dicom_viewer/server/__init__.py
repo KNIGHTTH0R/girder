@@ -48,78 +48,39 @@ class DicomItem(Resource):
 
     @access.public(scope=TokenScope.DATA_READ)
     @autoDescribeRoute(
-        Description('Get and store DICOM metadata, if any, for all files in the item.')
+        Description('Get and store common DICOM metadata, if any, for all files in the item.')
         .modelParam('id', 'The item ID',
                     model='item', level=AccessType.READ, paramType='path')
         .errorResponse('ID was invalid.')
         .errorResponse('Read permission denied on the item.', 403)
     )
-    def storeMetaData(self, item):
-        # The goal is to store extract common tag of dicom files
-        # to store them into the dicom item as metadata
-        item = _extractMetadata(item)
-        item = _extractCommonMetadata(item)
+    def makeDicomItem(self, item):
+        """
+        Try to convert an existing item into a "DICOM item", which contains a
+        "dicomMeta" field with DICOM metadata that is common to all DICOM files.
+        """
+        files = filter(_isDicomFile, ModelImporter.model('item').childFiles(item))
+        if not files:
+            return
+        dicomFileMeta = parse_file(file[0])
+        for additionalFile in files[1:]:
+            additionalFileMetadata = parse_file(additionalFile)
+            item['dicomMeta'] = removeUniqueMetadata(dicomFileMeta, additionalFileMetadata)
         return ModelImporter.model('item').save(item)
 
 
-def _extractMetadata(item):
-    item['dicomMeta'] = {}
-    item['dicomFiles'] = []
-    for file in ModelImporter.model('item').childFiles(item):
-        if not _isDicom(file):
-            continue
-        fileMeta = parse_file(file)
-        item['dicomFiles'].append({
-            'fileId': file['_id'],
-            'meta': fileMeta
-        })
-    return item
-
-
-def _isDicom(file):
-    if file.get('dicom'):
-        return True
-    return False
-
-
-def _extractCommonMetadata(item):
-    # find the common data
-    oldKey = []
-    oldValue = []
-    uniqueMetadata = []
+def removeUniqueMetadata(dicomMeta, additionalMeta):
+    dicomValues = []
     commonMetadata = []
-    uniqueListMetadata = []
-    for file in item['dicomFiles']:
-        meta = file['meta']
-        # The first file is took as reference
-        if not oldKey and not oldValue:
-            for k, v in meta.iteritems():
-                oldKey.append(k)
-                oldValue.append(v)
-        else:
-            for k, v in meta.iteritems():
-                lgtV = len(commonMetadata)
-                for j in oldValue:
-                    if j == v:
-                        commonMetadata.append({k: v})
-                if lgtV == len(commonMetadata):
-                    uniqueMetadata.append({k: v})
-            uniqueListMetadata.append(_listToDict(uniqueMetadata))
-            uniqueMetadata = []
-    # Store common tags and values
+    for k, v in dicomMeta.iteritems():
+        dicomValues.append(v)
+    for k, v in additionalMeta.iteritems():
+        for j in dicomValues:
+            if j == v:
+                commonMetadata.append({k: v})
     commonMetadataSet = _setListObject(commonMetadata)
-    item['dicomMeta'] = _listToDict(commonMetadataSet)
-    # Store list of different tags per files
-    item['dicomFiles'] = uniqueListMetadata
-    return item
-
-
-def _listToDict(list):  # To implement inside the function 2
-    dict = {}
-    for e in list:
-        for k in e.keys():
-            dict.setdefault(k, e[k])
-    return dict
+    commonMetadataSet = _listToDict(commonMetadataSet)
+    return commonMetadataSet
 
 
 def _setListObject(listObject):
@@ -134,6 +95,14 @@ def _setListObject(listObject):
             for h in range(0, len(removeObject)):
                 removeObject[h] -= 1
     return listObject
+
+
+def _listToDict(list):
+    dict = {}
+    for e in list:
+        for k in e.keys():
+            dict.setdefault(k, e[k])
+    return dict
 
 
 def sort_key(f):
@@ -158,6 +127,12 @@ def coerce(x):
         return x
     except Exception:
         return None
+
+
+def _isDicomFile(file):
+    if file.get('dicom'):
+        return True
+    return False
 
 
 def parse_file(f):
@@ -192,17 +167,28 @@ def parse_file(f):
     return data
 
 
+def onAdditionalFileUploadedToDicomItem(event):
+    """
+    Whenever an additional file is uploaded to a "DICOM item", remove any
+    DICOM metadata that is no longer common to all DICOM files in the item.
+    """
+    additionalFile = event.info['file']
+    item = ModelImporter.model('item').load(additionalFile['itemId'], force=True)
+    if not _isDicomFile(additionalFile):
+        return
+    additionalFileMetadata = parse_file(additionalFile)
+    item['dicomMeta'] = removeUniqueMetadata(item['dicomMeta'], additionalFileMetadata)
+    return ModelImporter.model('item').save(item)
+
+
 def process_file(f):
     f['dicom'] = parse_file(f)
-    # We could do the traitment here but we need to change it
-    # - _extractMetadata(item)
-    # - _extractCommonMetadata(item)
-    # Call each time a new file is upload, we don't need that, only when the complete item is upload
     return ModelImporter.model('file').save(f)
 
 
 def handler(event):
     process_file(event.info['file'])
+    onAdditionalFileUploadedToDicomItem(event)
 
 
 def load(info):
@@ -211,4 +197,4 @@ def load(info):
     info['apiRoot'].item.route(
         'GET', (':id', 'dicom'), dicomItem.getDicom)
     info['apiRoot'].item.route(
-        'POST', (':id', 'parseDicom'), dicomItem.storeMetaData)
+        'POST', (':id', 'parseDicom'), dicomItem.makeDicomItem)
