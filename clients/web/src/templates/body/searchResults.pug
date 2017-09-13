@@ -1,0 +1,25 @@
+.g-search-results-header-container
+  .g-search-results-header
+    .g-search-results-paginate
+    .g-search-results-advance-search
+  .g-search-results-title-container
+    i.icon-search
+    .g-search-results-title
+      | Result(s)
+
+.g-search-results-container
+  each result in results
+    .g-search-results-type-container
+      i(class=`icon-${result.icon}`)
+      .g-search-results-type-title
+        | #{result.type}
+      each element in result.elements
+        li.g-search-result(role="presentation")
+          a(resourceid=element.id, resourcetype=result.type,
+            role="menuitem", tabindex="-1")
+            |  #{element.text}
+
+if results.length === 0
+  .g-no-search-results.disabled(role="presentation")
+    i.icon-block
+    |  No results found

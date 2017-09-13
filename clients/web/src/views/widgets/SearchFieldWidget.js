@@ -8,7 +8,7 @@ import router from 'girder/router';
 import SearchFieldTemplate from 'girder/templates/widgets/searchField.pug';
 import SearchHelpTemplate from 'girder/templates/widgets/searchHelp.pug';
 import SearchModeSelectTemplate from 'girder/templates/widgets/searchModeSelect.pug';
-import SearchResultsTemplate from 'girder/templates/widgets/searchResults.pug';
+//import SearchResultsTemplate from 'girder/templates/widgets/searchResults.pug';
 
 import 'girder/stylesheets/widgets/searchFieldWidget.styl';
 
@@ -108,8 +108,8 @@ var SearchFieldWidget = View.extend({
     },
 
     _goToResultPage: function (results) {
-        console.log('goto')
-        router.navigate('#search/results',{trigger: true},results);
+        console.log('goto');
+        router.navigate('#search/results', {trigger: true}, results);
     },
 
     _resultClicked: function (link) {
@@ -251,7 +251,8 @@ var SearchFieldWidget = View.extend({
                     results: resources
                 }));*/
                 this.results = resources;
-                this.$('.dropdown').addClass('open');
+                //console.log(resources);
+                //this.$('.dropdown').addClass('open');
             }
         }, this));
     }
