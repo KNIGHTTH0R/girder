@@ -63,6 +63,7 @@ class DicomItem(Resource):
         if not files:
             return
         dicomFileMeta = parse_file(file[0])
+        item['dicomMeta'] = dicomFileMeta
         for additionalFile in files[1:]:
             additionalFileMetadata = parse_file(additionalFile)
             item['dicomMeta'] = removeUniqueMetadata(dicomFileMeta, additionalFileMetadata)
@@ -176,8 +177,13 @@ def onAdditionalFileUploadedToDicomItem(event):
     item = ModelImporter.model('item').load(additionalFile['itemId'], force=True)
     if not _isDicomFile(additionalFile):
         return
-    additionalFileMetadata = parse_file(additionalFile)
-    item['dicomMeta'] = removeUniqueMetadata(item['dicomMeta'], additionalFileMetadata)
+    for k in item.keys():
+        if k == 'dicomMeta':
+            additionalFileMetadata = parse_file(additionalFile)
+            item['dicomMeta'] = removeUniqueMetadata(item['dicomMeta'], additionalFileMetadata)
+            return ModelImporter.model('item').save(item)
+    # In this case the uploaded file is the first of the item
+    item['dicomMeta'] = additionalFileMetadata
     return ModelImporter.model('item').save(item)
 
 
