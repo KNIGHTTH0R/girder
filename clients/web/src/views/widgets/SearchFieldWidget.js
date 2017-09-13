@@ -3,6 +3,7 @@ import _ from 'underscore';
 
 import View from 'girder/views/View';
 import { restRequest } from 'girder/rest';
+import router from 'girder/router';
 
 import SearchFieldTemplate from 'girder/templates/widgets/searchField.pug';
 import SearchHelpTemplate from 'girder/templates/widgets/searchHelp.pug';
@@ -57,10 +58,7 @@ var SearchFieldWidget = View.extend({
                 }
             } else if (code === 13) { /* enter */
                 e.preventDefault();
-                var link = this.$('.g-search-result.g-search-selected>a');
-                if (link.length) {
-                    this._resultClicked(link);
-                }
+                this._goToResultPage(this.results);
             }
         }
     },
@@ -79,7 +77,7 @@ var SearchFieldWidget = View.extend({
     initialize: function (settings) {
         this.ajaxLock = false;
         this.pending = null;
-
+        this.results = []
         this.placeholder = settings.placeholder || 'Search...';
         this.getInfoCallback = settings.getInfoCallback || null;
         this.types = settings.types || [];
@@ -107,6 +105,11 @@ var SearchFieldWidget = View.extend({
         }
 
         return this;
+    },
+
+    _goToResultPage: function (results) {
+        console.log('goto')
+        router.navigate('#search/results',{trigger: true},results);
     },
 
     _resultClicked: function (link) {
@@ -244,10 +247,10 @@ var SearchFieldWidget = View.extend({
                         });
                     }, this);
                 }, this);
-                list.html(SearchResultsTemplate({
+                /*list.html(SearchResultsTemplate({
                     results: resources
-                }));
-
+                }));*/
+                this.results = resources;
                 this.$('.dropdown').addClass('open');
             }
         }, this));
