@@ -15,8 +15,8 @@
         | #{result.type}
       each element in result.elements
         li.g-search-result(role="presentation")
-          a(resourceid=element.id, resourcetype=result.type,
-            role="menuitem", tabindex="-1")
+          a(resourceid=element.id, resourcetype=result.type, g-icon=result.icon,
+              role="menuitem", tabindex="-1")
             |  #{element.text}
 
 if results.length === 0

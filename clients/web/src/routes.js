@@ -236,6 +236,7 @@ router.route('user/:id/folder/:id', 'userFolder', function (userId, folderId, pa
 import SearchResultsView from 'girder/views/body/SearchResultsView';
 router.route('search/results', 'SearchResults', function (params) {
     events.trigger('g:navigateTo', SearchResultsView, {
-        results: params.dialog === 'results'
+        query: params.query,
+        mode: params.mode
     } || {});
 });

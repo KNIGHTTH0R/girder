@@ -8,7 +8,7 @@ import router from 'girder/router';
 import SearchFieldTemplate from 'girder/templates/widgets/searchField.pug';
 import SearchHelpTemplate from 'girder/templates/widgets/searchHelp.pug';
 import SearchModeSelectTemplate from 'girder/templates/widgets/searchModeSelect.pug';
-//import SearchResultsTemplate from 'girder/templates/widgets/searchResults.pug';
+import SearchResultsTemplate from 'girder/templates/widgets/searchResults.pug';
 
 import 'girder/stylesheets/widgets/searchFieldWidget.styl';
 
@@ -39,26 +39,42 @@ var SearchFieldWidget = View.extend({
         'keydown .g-search-field': function (e) {
             var code = e.keyCode || e.which;
             var list, pos;
-            if (code === 40) { /* down arrow */
-                list = this.$('.g-search-result');
-                pos = list.index(list.filter('.g-search-selected')) + 1;
-                list.removeClass('g-search-selected');
-                if (pos < list.length) {
-                    list.eq(pos).addClass('g-search-selected');
-                }
-            } else if (code === 38) { /* up arrow */
-                list = this.$('.g-search-result');
-                pos = list.index(list.filter('.g-search-selected')) - 1;
-                list.removeClass('g-search-selected');
-                if (pos === -2) {
-                    pos = list.length - 1;
-                }
-                if (pos >= 0) {
-                    list.eq(pos).addClass('g-search-selected');
-                }
-            } else if (code === 13) { /* enter */
+            if (code === 13 && this.noResourceSelected) { /* enter without resource seleted */
                 e.preventDefault();
-                this._goToResultPage(this.results);
+                this._goToResultPage(this.$('.g-search-field').val(), this.currentMode);
+            } else if (code === 40 || code === 38) {
+                this.noResourceSelected = false;
+                if (code === 40) { /* down arrow */
+                    list = this.$('.g-search-result');
+                    pos = list.index(list.filter('.g-search-selected')) + 1;
+                    list.removeClass('g-search-selected');
+                    if (pos < list.length) {
+                        list.eq(pos).addClass('g-search-selected');
+                    }
+                    if (pos === list.length) {
+                        this.noResourceSelected = true;
+                    }
+                } else if (code === 38) { /* up arrow */
+                    list = this.$('.g-search-result');
+                    pos = list.index(list.filter('.g-search-selected')) - 1;
+                    list.removeClass('g-search-selected');
+                    if (pos === -1) {
+                        this.noResourceSelected = true;
+                    }
+                    if (pos === -2) {
+                        pos = list.length - 1;
+                    }
+                    if (pos >= 0) {
+                        list.eq(pos).addClass('g-search-selected');
+                    }
+                }
+            } else if (code === 13) { /* enter with resource selected */
+                e.preventDefault();
+                this.noResourceSelected = true;
+                var link = this.$('.g-search-result.g-search-selected>a');
+                if (link.length) {
+                    this._resultClicked(link);
+                }
             }
         }
     },
@@ -77,7 +93,8 @@ var SearchFieldWidget = View.extend({
     initialize: function (settings) {
         this.ajaxLock = false;
         this.pending = null;
-        this.results = []
+        this.noResourceSelected = true;
+        this.results = [];
         this.placeholder = settings.placeholder || 'Search...';
         this.getInfoCallback = settings.getInfoCallback || null;
         this.types = settings.types || [];
@@ -107,18 +124,23 @@ var SearchFieldWidget = View.extend({
         return this;
     },
 
-    _goToResultPage: function (results) {
-        console.log('goto');
-        router.navigate('#search/results', {trigger: true}, results);
+    _goToResultPage: function (query, mode) {
+        // TODO : URL encode query
+        this.resetState();
+        router.navigate(`#search/results?query=${query}&mode=${mode}`, {trigger: true});
     },
 
     _resultClicked: function (link) {
-        this.trigger('g:resultClicked', {
-            type: link.attr('resourcetype'),
-            id: link.attr('resourceid'),
-            text: link.text().trim(),
-            icon: link.attr('g-icon')
-        });
+        if (link.attr('resourcetype') === 'resultPage') {
+            this._goToResultPage(this.$('.g-search-field').val(), this.currentMode);
+        } else {
+            this.trigger('g:resultClicked', {
+                type: link.attr('resourcetype'),
+                id: link.attr('resourceid'),
+                text: link.text().trim(),
+                icon: link.attr('g-icon')
+            });
+        }
     },
 
     render: function () {
@@ -247,12 +269,11 @@ var SearchFieldWidget = View.extend({
                         });
                     }, this);
                 }, this);
-                /*list.html(SearchResultsTemplate({
+                list.html(SearchResultsTemplate({
                     results: resources
-                }));*/
+                }));
                 this.results = resources;
-                //console.log(resources);
-                //this.$('.dropdown').addClass('open');
+                this.$('.dropdown').addClass('open');
             }
         }, this));
     }
