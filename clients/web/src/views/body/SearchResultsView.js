@@ -3,14 +3,18 @@ import _ from 'underscore';
 
 import View from 'girder/views/View';
 import { restRequest } from 'girder/rest';
+import router from 'girder/router';
 
 import SearchResultsTemplate from 'girder/templates/body/searchResults.pug';
+
+import 'girder/stylesheets/body/searchResultsList.styl';
 
 // import PaginateWidget from 'girder/views/widgets/PaginateWidget';
 
 var SearchResultsView = View.extend({
     events: {
         'click .g-search-result>a': function (e) {
+            console.log($(e.currentTarget).attr('resourcetype'));
             this._resultClicked($(e.currentTarget));
         }
     },
@@ -49,18 +53,10 @@ var SearchResultsView = View.extend({
         }
     },
 
-    _resultClicked: function (link) {
-        console.log('Resource clicked');
-        if (link.attr('resourcetype') === 'resultPage') {
-            this._goToResultPage(this.$('.g-search-field').val(), this.currentMode);
-        } else {
-            this.trigger('g:resultClicked', {
-                type: link.attr('resourcetype'),
-                id: link.attr('resourceid'),
-                text: link.text().trim(),
-                icon: link.attr('g-icon')
-            });
-        }
+    _resultClicked: function (result) {
+        router.navigate(result.attr('resourcetype') + '/' + result.attr('resourceid'), {
+                trigger: true
+        });
     },
 
     render: function () {
