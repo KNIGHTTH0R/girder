@@ -269,7 +269,7 @@ var SearchFieldWidget = View.extend({
                         });
                     }, this);
                 }, this);
-                for (var k=0; k<resources.length; k++) {
+                for (var k = 0; k < resources.length; k++) {
                     if (k >= 6) {
                         break;
                     }

@@ -55,7 +55,7 @@ var SearchResultsView = View.extend({
 
     _resultClicked: function (result) {
         router.navigate(result.attr('resourcetype') + '/' + result.attr('resourceid'), {
-                trigger: true
+            trigger: true
         });
     },
 
