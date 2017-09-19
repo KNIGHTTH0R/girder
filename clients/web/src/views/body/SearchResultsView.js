@@ -29,7 +29,7 @@ var SearchResultsView = View.extend({
         this.results = [];
         this.query = settings.query;
         this.mode = settings.mode;
-        this.types = settings.types || ['collection', 'folder', 'item', 'user'];
+        this.types = settings.types || ['collection', 'group', 'user', 'folder', 'item'];
         // this.paginateWidget = new PaginateWidget({});
         this.search();
     },
@@ -61,7 +61,8 @@ var SearchResultsView = View.extend({
 
     render: function () {
         this.$el.html(SearchResultsTemplate({
-            results: this.results || null
+            results: this.results || null,
+            query: this.query || null
         }));
 
         return this;
@@ -86,22 +87,25 @@ var SearchResultsView = View.extend({
         var folders = [];
         var items = [];
         var users = [];
+        var groups = [];
         var elements = [];
-        const icons = ['sitemap', 'folder', 'doc-text-inv', 'user'];
+        const icons = ['sitemap', 'users', 'user', 'folder', 'doc-text-inv'];
         rawResults.forEach((result) => {
             if (result.type === 'collection') {
                 collections.push(result);
+            } else if (result.type === 'group') {
+                groups.push(result);
+            } else if (result.type === 'user') {
+                users.push(result);
             } else if (result.type === 'folder') {
                 folders.push(result);
             } else if (result.type === 'item') {
                 items.push(result);
-            } else if (result.type === 'user') {
-                users.push(result);
             } else {
                 console.log('Error type: ' + result.type + 'inconnu');
             }
         });
-        var resultsTypes = [collections, folders, items, users];
+        var resultsTypes = [collections, groups, users, folders, items];
         for (var k = 0; k < resultsTypes.length; k++) {
             resultsTypes[k].forEach((element) => {
                 elements.push({

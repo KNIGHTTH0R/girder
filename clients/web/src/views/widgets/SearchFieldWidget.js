@@ -269,10 +269,16 @@ var SearchFieldWidget = View.extend({
                         });
                     }, this);
                 }, this);
+                for (var k=0; k<resources.length; k++) {
+                    if (k >= 6) {
+                        break;
+                    }
+                    this.results.push(resources[k]);
+                }
                 list.html(SearchResultsTemplate({
-                    results: resources
+                    results: this.results
                 }));
-                this.results = resources;
+                this.results = [];
                 this.$('.dropdown').addClass('open');
             }
         }, this));
