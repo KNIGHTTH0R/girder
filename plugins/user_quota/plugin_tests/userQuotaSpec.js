@@ -69,7 +69,7 @@ function _makeCollectionPublic(collection) {
         $('#g-dialog-container input.g-search-field').trigger('input');
     });
     waitsFor(function () {
-        return $('.g-search-result').length === 1;
+        return $('.g-search-result-element').length === 1;
     }, 'user1 to be listed');
     runs(function () {
         $('.g-search-result a').click();

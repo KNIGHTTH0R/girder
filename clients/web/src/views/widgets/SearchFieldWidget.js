@@ -41,7 +41,9 @@ var SearchFieldWidget = View.extend({
             var list, pos;
             if (code === 13 && this.noResourceSelected) { /* enter without resource seleted */
                 e.preventDefault();
-                this._goToResultPage(this.$('.g-search-field').val(), this.currentMode);
+                if (this.$('.g-search-field').val() !== '') {
+                    this._goToResultPage(this.$('.g-search-field').val(), this.currentMode);
+                }
             } else if (code === 40 || code === 38) {
                 this.noResourceSelected = false;
                 if (code === 40) { /* down arrow */
