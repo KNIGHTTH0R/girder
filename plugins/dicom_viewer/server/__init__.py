@@ -73,9 +73,9 @@ class DicomItem(Resource):
 def removeUniqueMetadata(dicomMeta, additionalMeta):
     dicomValues = []
     commonMetadata = []
-    for k, v in dicomMeta.iteritems():
+    for k, v in six.iteritems(dicomMeta):
         dicomValues.append(v)
-    for k, v in additionalMeta.iteritems():
+    for k, v in six.iteritems(additionalMeta):
         for j in dicomValues:
             if j == v:
                 commonMetadata.append({k: v})
