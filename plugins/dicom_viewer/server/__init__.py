@@ -27,7 +27,7 @@ class DicomItem(Resource):
         .errorResponse('ID was invalid.')
         .errorResponse('Read permission denied on the item.', 403)
     )
-    def getDicom(self, item, filters, force):
+    def getDicom2(self, item, filters, force):
         if force:
             self.model('item').requireAccess(
                 item, user=self.getCurrentUser(), level=AccessType.WRITE)
@@ -52,6 +52,43 @@ class DicomItem(Resource):
 
     @access.public(scope=TokenScope.DATA_READ)
     @autoDescribeRoute(
+        Description('Get DICOM metadata, if any, for all files in the item.')
+        .modelParam('id', 'The item ID',
+                    model='item', level=AccessType.READ, paramType='path')
+        .param('filters', 'Filter returned DICOM tags (comma-separated).',
+               required=False, default='')
+        .param('force', 'Force re-parsing the DICOM files. Write access required.',
+               required=False, dataType='boolean', default=False)
+        .errorResponse('ID was invalid.')
+        .errorResponse('Read permission denied on the item.', 403)
+    )
+    def getDicom(self, item, filters, force):
+        isDicomItem = False
+        if force:
+            self.model('item').requireAccess(
+                item, user=self.getCurrentUser(), level=AccessType.WRITE)
+        filters = set(filter(None, filters.split(',')))
+        files = list(ModelImporter.model('item').childFiles(item))
+        # process files if they haven't been processed yet
+        for k in six.viewkeys(item):
+            if k == 'dicomMeta':
+                isDicomItem = True
+        if not isDicomItem :
+            item = self.makeDicomItem(self, item)
+        # filter out non-dicom files
+        files = [x for x in files if parse_file(f)]
+        # sort files
+        files = sorted(files, key=sort_key)
+        # execute filters
+        # if filters:
+        #     for f in files:
+        #         dicom = f['dicom']
+        #         dicom = dict((k, dicom[k]) for k in filters if k in dicom)
+        #         f['dicom'] = dicom
+        return files
+
+    @access.public(scope=TokenScope.DATA_READ)
+    @autoDescribeRoute(
         Description('Get and store common DICOM metadata, if any, for all files in the item.')
         .modelParam('id', 'The item ID',
                     model='item', level=AccessType.READ, paramType='path')
@@ -69,11 +106,9 @@ class DicomItem(Resource):
         )
         if not allDicomMeta:
             return
-
         baselineFileMeta = allDicomMeta.next()
         for additionalDicomMeta in allDicomMeta:
             baselineFileMeta = removeUniqueMetadata(baselineFileMeta, additionalDicomMeta)
-
         item['dicomMeta'] = baselineFileMeta
         return ModelImporter.model('item').save(item)
 
@@ -145,14 +180,13 @@ def handler(event):
     file = event.info['file']
     fileMetadata = parse_file(file)
     ModelImporter.model('file').save(file)
-
+    if not fileMetadata:
+        return
     """
     Whenever an additional file is uploaded to a "DICOM item", remove any
     DICOM metadata that is no longer common to all DICOM files in the item.
     """
     item = ModelImporter.model('item').load(file['itemId'], force=True)
-    if not fileMetadata:
-        return
     for k in six.viewkeys(item):
         if k == 'dicomMeta':
             item['dicomMeta'] = removeUniqueMetadata(item['dicomMeta'], fileMetadata)
