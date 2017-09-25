@@ -6,8 +6,11 @@ from girder.api.describe import Description, autoDescribeRoute
 from girder.api.rest import Resource
 from girder.constants import AccessType, TokenScope
 from girder.utility.model_importer import ModelImporter
+
 import dicom
 import six
+from six.moves import map as itermap
+from six.moves import filter as iterfilter
 
 
 class DicomItem(Resource):
@@ -33,7 +36,8 @@ class DicomItem(Resource):
         # process files if they haven't been processed yet
         for i, f in enumerate(files):
             if force or 'dicom' not in f:
-                files[i] = process_file(f)
+                f['dicom'] = parse_file(f)
+                files[i] = ModelImporter.model('file').save(f)
         # filter out non-dicom files
         files = [x for x in files if x.get('dicom')]
         # sort files
@@ -59,51 +63,26 @@ class DicomItem(Resource):
         Try to convert an existing item into a "DICOM item", which contains a
         "dicomMeta" field with DICOM metadata that is common to all DICOM files.
         """
-        files = filter(_isDicomFile, ModelImporter.model('item').childFiles(item))
-        if not files:
+        allDicomMeta = iterfilter(
+            None,
+            itermap(parse_file, ModelImporter.model('item').childFiles(item))
+        )
+        if not allDicomMeta:
             return
-        dicomFileMeta = parse_file(file[0])
-        item['dicomMeta'] = dicomFileMeta
-        for additionalFile in files[1:]:
-            additionalFileMetadata = parse_file(additionalFile)
-            item['dicomMeta'] = removeUniqueMetadata(dicomFileMeta, additionalFileMetadata)
+
+        baselineFileMeta = allDicomMeta.next()
+        for additionalDicomMeta in allDicomMeta:
+            baselineFileMeta = removeUniqueMetadata(baselineFileMeta, additionalDicomMeta)
+
+        item['dicomMeta'] = baselineFileMeta
         return ModelImporter.model('item').save(item)
 
 
 def removeUniqueMetadata(dicomMeta, additionalMeta):
-    dicomValues = []
-    commonMetadata = []
-    for k, v in six.iteritems(dicomMeta):
-        dicomValues.append(v)
-    for k, v in six.iteritems(additionalMeta):
-        for j in dicomValues:
-            if j == v:
-                commonMetadata.append({k: v})
-    commonMetadataSet = _setListObject(commonMetadata)
-    commonMetadataSet = _listToDict(commonMetadataSet)
-    return commonMetadataSet
-
-
-def _setListObject(listObject):
-    # Delete all the redundante object from the list
-    for i in range(0, len(listObject)-1):
-        removeObject = []
-        for j in range(i+1, len(listObject)):
-            if listObject[i] == listObject[j]:
-                removeObject.append(j)
-        for k in range(0, len(removeObject)):
-            listObject.pop(removeObject[k])
-            for h in range(0, len(removeObject)):
-                removeObject[h] -= 1
-    return listObject
-
-
-def _listToDict(list):
-    dict = {}
-    for e in list:
-        for k in e.keys():
-            dict.setdefault(k, e[k])
-    return dict
+    return dict(
+        set(six.viewitems(dicomMeta)) &
+        set(six.viewitems(additionalMeta))
+    )
 
 
 def sort_key(f):
@@ -128,12 +107,6 @@ def coerce(x):
         return x
     except Exception:
         return None
-
-
-def _isDicomFile(file):
-    if file.get('dicom'):
-        return True
-    return False
 
 
 def parse_file(f):
@@ -164,37 +137,29 @@ def parse_file(f):
                 if value is not None:
                     data[key] = value
     except Exception:
-        pass  # if an error occurs, probably not a dicom file
+        return None  # if an error occurs, probably not a dicom file
     return data
 
 
-def onAdditionalFileUploadedToDicomItem(event):
+def handler(event):
+    file = event.info['file']
+    fileMetadata = parse_file(file)
+    ModelImporter.model('file').save(file)
+
     """
     Whenever an additional file is uploaded to a "DICOM item", remove any
     DICOM metadata that is no longer common to all DICOM files in the item.
     """
-    additionalFile = event.info['file']
-    item = ModelImporter.model('item').load(additionalFile['itemId'], force=True)
-    if not _isDicomFile(additionalFile):
+    item = ModelImporter.model('item').load(file['itemId'], force=True)
+    if not fileMetadata:
         return
-    for k in item.keys():
+    for k in six.viewkeys(item):
         if k == 'dicomMeta':
-            additionalFileMetadata = parse_file(additionalFile)
-            item['dicomMeta'] = removeUniqueMetadata(item['dicomMeta'], additionalFileMetadata)
+            item['dicomMeta'] = removeUniqueMetadata(item['dicomMeta'], fileMetadata)
             return ModelImporter.model('item').save(item)
     # In this case the uploaded file is the first of the item
-    item['dicomMeta'] = additionalFileMetadata
+    item['dicomMeta'] = fileMetadata
     return ModelImporter.model('item').save(item)
-
-
-def process_file(f):
-    f['dicom'] = parse_file(f)
-    return ModelImporter.model('file').save(f)
-
-
-def handler(event):
-    process_file(event.info['file'])
-    onAdditionalFileUploadedToDicomItem(event)
 
 
 def load(info):
