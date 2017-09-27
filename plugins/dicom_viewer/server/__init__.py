@@ -15,83 +15,11 @@ from six.moves import filter as iterfilter
 
 class DicomItem(Resource):
 
-    @access.public(scope=TokenScope.DATA_READ)
-    @autoDescribeRoute(
-        Description('Get DICOM metadata, if any, for all files in the item.')
-        .modelParam('id', 'The item ID',
-                    model='item', level=AccessType.READ, paramType='path')
-        .param('filters', 'Filter returned DICOM tags (comma-separated).',
-               required=False, default='')
-        .param('force', 'Force re-parsing the DICOM files. Write access required.',
-               required=False, dataType='boolean', default=False)
-        .errorResponse('ID was invalid.')
-        .errorResponse('Read permission denied on the item.', 403)
-    )
-    def getDicom2(self, item, filters, force):
-        if force:
-            self.model('item').requireAccess(
-                item, user=self.getCurrentUser(), level=AccessType.WRITE)
-        filters = set(filter(None, filters.split(',')))
-        files = list(ModelImporter.model('item').childFiles(item))
-        # process files if they haven't been processed yet
-        for i, f in enumerate(files):
-            if force or 'dicom' not in f:
-                f['dicom'] = parse_file(f)
-                files[i] = ModelImporter.model('file').save(f)
-        # filter out non-dicom files
-        files = [x for x in files if x.get('dicom')]
-        # sort files
-        files = sorted(files, key=sort_key)
-        # execute filters
-        if filters:
-            for f in files:
-                dicom = f['dicom']
-                dicom = dict((k, dicom[k]) for k in filters if k in dicom)
-                f['dicom'] = dicom
-        return files
-
-    @access.public(scope=TokenScope.DATA_READ)
-    @autoDescribeRoute(
-        Description('Get DICOM metadata, if any, for all files in the item.')
-        .modelParam('id', 'The item ID',
-                    model='item', level=AccessType.READ, paramType='path')
-        .param('filters', 'Filter returned DICOM tags (comma-separated).',
-               required=False, default='')
-        .param('force', 'Force re-parsing the DICOM files. Write access required.',
-               required=False, dataType='boolean', default=False)
-        .errorResponse('ID was invalid.')
-        .errorResponse('Read permission denied on the item.', 403)
-    )
-    def getDicom(self, item, filters, force):
-        isDicomItem = False
-        if force:
-            self.model('item').requireAccess(
-                item, user=self.getCurrentUser(), level=AccessType.WRITE)
-        filters = set(filter(None, filters.split(',')))
-        files = list(ModelImporter.model('item').childFiles(item))
-        # process files if they haven't been processed yet
-        for k in six.viewkeys(item):
-            if k == 'dicomMeta':
-                isDicomItem = True
-        if not isDicomItem :
-            item = self.makeDicomItem(self, item)
-        # filter out non-dicom files
-        files = [x for x in files if parse_file(f)]
-        # sort files
-        files = sorted(files, key=sort_key)
-        # execute filters
-        # if filters:
-        #     for f in files:
-        #         dicom = f['dicom']
-        #         dicom = dict((k, dicom[k]) for k in filters if k in dicom)
-        #         f['dicom'] = dicom
-        return files
-
-    @access.public(scope=TokenScope.DATA_READ)
+    @access.user
     @autoDescribeRoute(
         Description('Get and store common DICOM metadata, if any, for all files in the item.')
         .modelParam('id', 'The item ID',
-                    model='item', level=AccessType.READ, paramType='path')
+                    model='item', level=AccessType.WRITE, paramType='path')
         .errorResponse('ID was invalid.')
         .errorResponse('Read permission denied on the item.', 403)
     )
@@ -104,29 +32,33 @@ class DicomItem(Resource):
             None,
             itermap(parse_file, ModelImporter.model('item').childFiles(item))
         )
-        if not allDicomMeta:
+        try:
+            baselineFileMeta = next(allDicomMeta)
+        except StopIteration:
+            # No Dicom files
             return
-        baselineFileMeta = allDicomMeta.next()
         for additionalDicomMeta in allDicomMeta:
             baselineFileMeta = removeUniqueMetadata(baselineFileMeta, additionalDicomMeta)
         item['dicomMeta'] = baselineFileMeta
-        return ModelImporter.model('item').save(item)
+        ModelImporter.model('item').save(item)
 
 
 def removeUniqueMetadata(dicomMeta, additionalMeta):
     return dict(
-        set(six.viewitems(dicomMeta)) &
-        set(six.viewitems(additionalMeta))
-    )
-
-
-def sort_key(f):
-    dicom = f.get('dicom', {})
-    return (
-        dicom.get('SeriesNumber'),
-        dicom.get('InstanceNumber'),
-        dicom.get('SliceLocation'),
-        f['name'],
+        set(
+            (
+                k,
+                tuple(v) if isinstance(v, list) else v
+            )
+            for k, v in six.viewitems(dicomMeta)
+        ) &
+        set(
+            (
+                k,
+                tuple(v) if isinstance(v, list) else v
+            )
+            for k, v in six.viewitems(additionalMeta)
+        )
     )
 
 
@@ -152,7 +84,7 @@ def parse_file(f):
             ds = dicom.read_file(
                 fp,
                 # some dicom files don't have a valid header
-                force=True,
+                # force=True,
                 # don't read huge fields, esp. if this isn't even really dicom
                 defer_size=1024,
                 # don't read image data, just metadata
@@ -171,35 +103,33 @@ def parse_file(f):
                 value = coerce(value.value)
                 if value is not None:
                     data[key] = value
-    except Exception:
-        return None  # if an error occurs, probably not a dicom file
+    except dicom.errors.InvalidDicomError:
+        # if this error occurs, probably not a dicom file
+        return None
     return data
 
 
 def handler(event):
-    file = event.info['file']
-    fileMetadata = parse_file(file)
-    ModelImporter.model('file').save(file)
-    if not fileMetadata:
-        return
     """
     Whenever an additional file is uploaded to a "DICOM item", remove any
     DICOM metadata that is no longer common to all DICOM files in the item.
     """
+    file = event.info['file']
+    fileMetadata = parse_file(file)
+    if fileMetadata is None:
+        return
     item = ModelImporter.model('item').load(file['itemId'], force=True)
-    for k in six.viewkeys(item):
-        if k == 'dicomMeta':
-            item['dicomMeta'] = removeUniqueMetadata(item['dicomMeta'], fileMetadata)
-            return ModelImporter.model('item').save(item)
-    # In this case the uploaded file is the first of the item
-    item['dicomMeta'] = fileMetadata
-    return ModelImporter.model('item').save(item)
+    if 'dicomMeta' in item:
+        item['dicomMeta'] = removeUniqueMetadata(item['dicomMeta'], fileMetadata)
+    else:
+        # In this case the uploaded file is the first of the item
+        item['dicomMeta'] = fileMetadata
+    ModelImporter.model('item').save(item)
 
 
 def load(info):
+    ModelImporter.model('item').exposeFields(level=AccessType.READ, fields={'dicomMeta'})
     events.bind('data.process', 'dicom_viewer', handler)
     dicomItem = DicomItem()
-    info['apiRoot'].item.route(
-        'GET', (':id', 'dicom'), dicomItem.getDicom)
     info['apiRoot'].item.route(
         'POST', (':id', 'parseDicom'), dicomItem.makeDicomItem)
