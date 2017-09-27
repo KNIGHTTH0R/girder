@@ -99,6 +99,12 @@ var SearchFieldWidget = View.extend({
         this.results = [];
         this.placeholder = settings.placeholder || 'Search...';
         this.getInfoCallback = settings.getInfoCallback || null;
+        /* The order of settings.types give the order of the display of the elements :
+         *     ['collection', 'folder', 'item'] will be render like this
+         *       [icon-collection] collections..
+         *       [icon-folder] folders..
+         *       [icon-item] items..
+         */
         this.types = settings.types || [];
         this.modes = settings.modes || ['text', 'prefix'];
 

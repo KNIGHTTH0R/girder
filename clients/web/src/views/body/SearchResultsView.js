@@ -36,8 +36,6 @@ var SearchResultsView = View.extend({
 
     search: function () {
         if (!this.query) {
-            // TODO : Special display if the query is empty
-            // BUG : if mode 'Prefix' and empty query -----> all is display
             this.render();
         }
         if (this.ajaxLock) {
