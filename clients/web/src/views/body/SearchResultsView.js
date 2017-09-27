@@ -46,7 +46,7 @@ var SearchResultsView = View.extend({
             const rawPromise = this._doSearch(this.query);
             rawPromise.done(() => {
                 if (this.rawResults.length !== 0) {
-                    this.results = this.parse_result(this.rawResults);
+                    this.results = this._parse_result(this.rawResults);
                 }
                 this.render();
             });
@@ -81,7 +81,7 @@ var SearchResultsView = View.extend({
      *      }, ...]
      * which contain each results with the same type in the same list 'elements'.
      */
-    parse_result: function (rawResults) {
+    _parse_result: function (rawResults) {
         var results = [];
         var collections = [];
         var folders = [];
