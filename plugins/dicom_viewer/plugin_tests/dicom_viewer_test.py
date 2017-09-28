@@ -2,10 +2,11 @@ from tests import base
 import os
 import time
 
-
 def setUpModule():
     base.enabledPlugins.append('dicom_viewer')
     base.startServer()
+    global removeUniqueMetadata
+    from girder.plugins.dicom_viewer import removeUniqueMetadata
 
 
 def tearDownModule():
@@ -20,6 +21,35 @@ class DicomViewerTest(base.TestCase):
         self.users = [self.model('user').createUser(
             'usr%s' % num, 'passwd', 'tst', 'usr', 'u%s@u.com' % num)
             for num in [0, 1]]
+
+    def testRemoveUniqueMetadata(self):
+        dicomMeta = {
+            'key1': 'value1',
+            'key2': 'value2',
+            'key3': 'value3',
+            'key4': 35,
+            'key5': 54,
+            'key6': 'commonVal',
+            'uniqueKey1': 'commonVal'
+        }
+        additionalMeta = {
+            'key1': 'value1',
+            'key2': 'value2',
+            'key3': 'value3',
+            'key4': 35,
+            'key5': 54,
+            'key6': 'uniqueVal',
+            'uniqueKey2': 'commonVal',
+
+        }
+        commonMeta = {
+            'key1': 'value1',
+            'key2': 'value2',
+            'key3': 'value3',
+            'key4': 35,
+            'key5': 54
+        }
+        self.assertEqual(removeUniqueMetadata(dicomMeta, additionalMeta), commonMeta)
 
     def testDicomViewer(self):
         admin, user = self.users

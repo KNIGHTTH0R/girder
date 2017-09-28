@@ -4,7 +4,7 @@ from girder import events
 from girder.api import access
 from girder.api.describe import Description, autoDescribeRoute
 from girder.api.rest import Resource
-from girder.constants import AccessType, TokenScope
+from girder.constants import AccessType
 from girder.utility.model_importer import ModelImporter
 
 import dicom
