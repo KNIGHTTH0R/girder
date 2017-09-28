@@ -27,11 +27,11 @@ wrap(ItemView, 'render', function (render) {
         });
         view.render();
     }, this);
+    console.log(this.model);
     return render.call(this);
 });
 
-
-const parseDicomItem = function () {
+ItemView.prototype.events['click .g-dicom-parse-item'] = function () {
     restRequest({
         method: 'POST',
         url: `item/${this.model.id}/parseDicom`
@@ -41,11 +41,7 @@ const parseDicomItem = function () {
             icon: 'ok',
             text: 'Dicom item parsed.',
             type: 'success',
-            timeout: 4000
+            timeout: 2000
         });
-        console.log('Dicom item parsed');
     }, this));
 };
-ItemView.prototype.events['click .g-dicom-parse-item'] = parseDicomItem;
-
-console.log(ItemView.prototype.events);

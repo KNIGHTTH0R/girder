@@ -132,8 +132,9 @@ var DicomView = View.extend({
 
     loadFileList: function () {
         restRequest({
-            url: `item/${this.item.id}/dicom`,
+            url: `item/${this.item.id}/files`,
             data: {
+                limit: 200,
                 // don't need the dicom tags, just want the sorted results
                 filters: 'dummy'
             }
