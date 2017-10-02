@@ -9,12 +9,17 @@ import SearchResultsTemplate from 'girder/templates/body/searchResults.pug';
 
 import 'girder/stylesheets/body/searchResultsList.styl';
 
-// import PaginateWidget from 'girder/views/widgets/PaginateWidget';
+import CollectionCollection from 'girder/collections/CollectionCollection';
+import GroupCollection from 'girder/collections/GroupCollection';
+import UserCollection from 'girder/collections/UserCollection';
+import FolderCollection from 'girder/collections/FolderCollection';
+import ItemCollection from 'girder/collections/ItemCollection';
+
+import PaginateWidget from 'girder/views/widgets/PaginateWidget';
 
 var SearchResultsView = View.extend({
     events: {
         'click .g-search-result>a': function (e) {
-            console.log($(e.currentTarget).attr('resourcetype'));
             this._resultClicked($(e.currentTarget));
         }
     },
@@ -30,7 +35,36 @@ var SearchResultsView = View.extend({
         this.query = settings.query;
         this.mode = settings.mode;
         this.types = settings.types || ['collection', 'group', 'user', 'folder', 'item'];
-        // this.paginateWidget = new PaginateWidget({});
+
+        const collectionPaginate = new PaginateWidget({
+            parentView: this,
+            collection: new CollectionCollection()
+        });
+        const groupPaginate = new PaginateWidget({
+            parentView: this,
+            collection: new GroupCollection()
+        });
+        const userPaginate = new PaginateWidget({
+            parentView: this,
+            collection: new UserCollection()
+        });
+        const folderPaginate = new PaginateWidget({
+            parentView: this,
+            collection: new FolderCollection()
+        });
+        const itemPaginate = new PaginateWidget({
+            parentView: this,
+            collection: new ItemCollection()
+        });
+
+        this.paginateWidgets = {
+            'collection': collectionPaginate,
+            'group': groupPaginate,
+            'user': userPaginate,
+            'folder': folderPaginate,
+            'item': itemPaginate
+        };
+
         this.search();
     },
 
@@ -62,6 +96,14 @@ var SearchResultsView = View.extend({
             results: this.results || null,
             query: this.query || null
         }));
+        // set paginateWidget only for results types containing elements
+        this.results.forEach((result) => {
+            for (var key in this.paginateWidgets) {
+                if (result.type === key) {
+                    this.paginateWidgets[key].setElement(this.$(`#${result.type}Paginate`)).render();
+                }
+            }
+        });
 
         return this;
     },
