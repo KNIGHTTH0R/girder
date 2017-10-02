@@ -41,6 +41,7 @@ class DicomItem(Resource):
             baselineFileMeta = removeUniqueMetadata(baselineFileMeta, additionalDicomMeta)
         item['dicomMeta'] = baselineFileMeta
         ModelImporter.model('item').save(item)
+        return True
 
 
 def removeUniqueMetadata(dicomMeta, additionalMeta):
