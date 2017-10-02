@@ -32,6 +32,7 @@ var SearchResultsView = View.extend({
         this.pending = null;
         this.rawResults = [];
         this.results = [];
+        this.paginationLimit = 6;
         this.query = settings.query;
         this.mode = settings.mode;
         this.types = settings.types || ['collection', 'group', 'user', 'folder', 'item'];
@@ -94,7 +95,8 @@ var SearchResultsView = View.extend({
     render: function () {
         this.$el.html(SearchResultsTemplate({
             results: this.results || null,
-            query: this.query || null
+            query: this.query || null,
+            limit: this.paginationLimit
         }));
         // set paginateWidget only for results types containing elements
         this.results.forEach((result) => {
