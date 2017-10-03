@@ -3,13 +3,11 @@ from dicom.valuerep import PersonName3
 from girder import events
 from girder.api import access
 from girder.api.describe import Description, autoDescribeRoute
-from girder.api.rest import Resource, RestException
+from girder.api.rest import Resource
 from girder.constants import AccessType
 from girder.utility.model_importer import ModelImporter
 import dicom
 import six
-from six.moves import map as itermap
-from six.moves import filter as iterfilter
 
 
 class DicomItem(Resource):
@@ -27,6 +25,7 @@ class DicomItem(Resource):
         Try to convert an existing item into a "DICOM item", which contains a
         "dicomMeta" field with DICOM metadata that is common to all DICOM files.
         """
+        item['dicom'] = {}
         item['dicom']['meta'] = None
         item['dicom']['files'] = []
 
