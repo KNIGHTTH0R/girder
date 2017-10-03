@@ -32,26 +32,24 @@ wrap(ItemView, 'render', function (render) {
 ItemView.prototype.events['click .g-dicom-parse-item'] = function () {
     restRequest({
         method: 'POST',
-        url: `item/${this.model.id}/parseDicom`
-    }).done(_.bind(function (resp) {
-        // Show up a message to alert the user it was done
-        let text;
-        let icon;
-        let type;
-        if (resp === null) {
-            icon = 'cancel';
-            text = 'No Dicom metadata.';
-            type = 'danger';
-        } else {
-            icon = 'ok';
-            text = 'Dicom item parsed.';
-            type = 'success';
-        }
-        events.trigger('g:alert', {
-            icon: icon,
-            text: text,
-            type: type,
-            timeout: 4000
+        url: `item/${this.model.id}/parseDicom`,
+        error: null
+    })
+        .done((resp) => {
+            // Show up a message to alert the user it was done
+            events.trigger('g:alert', {
+                icon: 'ok',
+                text: 'Dicom item parsed.',
+                type: 'success',
+                timeout: 4000
+            });
+        })
+        .fail((resp) => {
+            events.trigger('g:alert', {
+                icon: 'cancel',
+                text: 'No Dicom metadata.',
+                type: 'danger',
+                timeout: 4000
+            });
         });
-    }, this));
 };
