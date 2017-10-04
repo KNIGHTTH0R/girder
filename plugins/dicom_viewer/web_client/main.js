@@ -1,5 +1,3 @@
-import _ from 'underscore';
-
 import { getCurrentUser } from 'girder/auth';
 import { AccessType } from 'girder/constants';
 import events from 'girder/events';
