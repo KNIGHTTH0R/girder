@@ -253,7 +253,6 @@ describe('Create a data hierarchy', function () {
             sendKeyDown(38, '.g-quick-search-container input.g-search-field');
             sendKeyDown(38, '.g-quick-search-container input.g-search-field');
             sendKeyDown(40, '.g-quick-search-container input.g-search-field');
-            sendKeyDown(40, '.g-quick-search-container input.g-search-field');
             sendKeyDown(13, '.g-quick-search-container input.g-search-field');
             expect(Backbone.history.fragment).toBe(
                 'user/' + girder.auth.getCurrentUser().get('_id'));
