@@ -1,3 +1,5 @@
+import _ from 'underscore';
+
 import { getCurrentUser } from 'girder/auth';
 import { AccessType } from 'girder/constants';
 import events from 'girder/events';
@@ -5,25 +7,28 @@ import { restRequest } from 'girder/rest';
 import { wrap } from 'girder/utilities/PluginUtils';
 import ItemView from 'girder/views/body/ItemView';
 
-import DicomView from './views/DicomView';
-import parseDicomItemTemplate from './templates/parseDicomItem.pug';
+import DicomItemView from './views/DicomView';
+import ParseDicomItemTemplate from './templates/parseDicomItem.pug';
 
 wrap(ItemView, 'render', function (render) {
-    this.once('g:rendered', function () {
+    this.once('g:rendered', () => {
+        // Add a button to force DICOM extraction
         if (this.model.get('_accessLevel') >= AccessType.WRITE) {
-            this.$('.g-item-actions-menu').prepend(parseDicomItemTemplate({
+            this.$('.g-item-actions-menu').prepend(ParseDicomItemTemplate({
                 item: this.model,
                 currentUser: getCurrentUser()
             }));
         }
-        this.$('.g-item-header').after('<div class="g-dicom-view"></div>');
-        const view = new DicomView({
-            el: this.$('.g-dicom-view'),
-            parentView: this,
-            item: this.model
-        });
-        view.render();
-    }, this);
+
+        if (this.model.has('dicom')) {
+            new DicomItemView({
+                parentView: this,
+                item: this.model
+            })
+                .render()
+                .$el.insertAfter(this.$('.g-item-info'));
+        }
+    });
     return render.call(this);
 });
 
