@@ -25,24 +25,62 @@ class DicomItem(Resource):
         Try to convert an existing item into a "DICOM item", which contains a
         "dicomMeta" field with DICOM metadata that is common to all DICOM files.
         """
-        item['dicom'] = {}
-        item['dicom']['meta'] = None
-        item['dicom']['files'] = []
+        metadataReference = None
+        dicomFiles = []
 
         for file in ModelImporter.model('item').childFiles(item):
             dicomMeta = parse_file(file)
             if dicomMeta is None:
                 continue
-            item['dicom']['files'].append(file)
-            if item['dicom']['meta'] is None:
-                item['dicom']['meta'] = dicomMeta
+            dicomFiles.append(_extractFileData(file, dicomMeta))
+            if metadataReference is None:
+                metadataReference = dicomMeta
             else:
-                item['dicom']['meta'] = removeUniqueMetadata(item['dicom']['meta'], dicomMeta)
+                metadataReference = removeUniqueMetadata(metadataReference, dicomMeta)
 
-        ModelImporter.model('item').save(item)
+        if len(dicomFiles) is not 0:
+            # Sort the dicom files
+            dicomFiles = sorted(dicomFiles,key=_sort_key)
+            # Store in the item
+            item['dicom'] = {}
+            item['dicom']['meta'] = metadataReference
+            item['dicom']['files'] = dicomFiles
+            # Save the item
+            ModelImporter.model('item').save(item)
+
+
+def _extractFileData(file, dicom):
+    '''
+    Extract the usefull data to be stored in the `item['dicom']['files']`.
+    In this way it become simpler to sort them and store them.
+    '''
+    return {
+        '_id': file.get('_id'),
+        'name': file.get('name'),
+        'SeriesNumber': dicom.get('SeriesNumber'),
+        'InstanceNumber': dicom.get('InstanceNumber'),
+        'SliceLocation': dicom.get('SliceLocation')
+    }
+
+
+def _sort_key(f):
+    '''
+    These properties are used to sort the files into the item
+    '''
+    return (
+        f.get('name'),
+        f.get('SeriesNumber'),
+        f.get('InstanceNumber'),
+        f.get('SliceLocation')
+    )
 
 
 def removeUniqueMetadata(dicomMeta, additionalMeta):
+    '''
+    Return only the common data between the two inputs.
+    Only work if all the data element are hashable,
+    this means not have any dict or list as properties
+    '''
     return dict(
         set(
             (
@@ -118,11 +156,13 @@ def handler(event):
     if fileMetadata is None:
         return
     item = ModelImporter.model('item').load(file['itemId'], force=True)
-    if 'meta' in item['dicom']:
+    if 'dicom' in item:
         item['dicom']['meta'] = removeUniqueMetadata(item['dicom']['meta'], fileMetadata)
     else:
         # In this case the uploaded file is the first of the item
+        item['dicom'] = {}
         item['dicom']['meta'] = fileMetadata
+        item['dicom']['files'] = _extractFileData(file, fileMetadata)
     ModelImporter.model('item').save(item)
 
 
