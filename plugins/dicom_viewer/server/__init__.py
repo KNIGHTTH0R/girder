@@ -1,3 +1,22 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+###############################################################################
+#  Copyright Kitware Inc.
+#
+#  Licensed under the Apache License, Version 2.0 ( the "License" );
+#  you may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+###############################################################################
+
 from dicom.sequence import Sequence
 from dicom.valuerep import PersonName3
 from girder import events
@@ -21,8 +40,7 @@ class DicomItem(Resource):
         .errorResponse('Read permission denied on the item.', 403)
     )
     def makeDicomItem(self, item):
-        """
-        Try to convert an existing item into a "DICOM item", which contains a
+        """Try to convert an existing item into a "DICOM item", which contains a
         "dicomMeta" field with DICOM metadata that is common to all DICOM files.
         """
         metadataReference = None
@@ -40,7 +58,7 @@ class DicomItem(Resource):
 
         if len(dicomFiles) is not 0:
             # Sort the dicom files
-            dicomFiles = sorted(dicomFiles,key=_sort_key)
+            dicomFiles = sorted(dicomFiles, key=_sort_key)
             # Store in the item
             item['dicom'] = {}
             item['dicom']['meta'] = metadataReference
@@ -50,10 +68,9 @@ class DicomItem(Resource):
 
 
 def _extractFileData(file, dicom):
-    '''
-    Extract the usefull data to be stored in the `item['dicom']['files']`.
+    """Extract the usefull data to be stored in the `item['dicom']['files']`.
     In this way it become simpler to sort them and store them.
-    '''
+    """
     return {
         '_id': file.get('_id'),
         'name': file.get('name'),
@@ -64,9 +81,7 @@ def _extractFileData(file, dicom):
 
 
 def _sort_key(f):
-    '''
-    These properties are used to sort the files into the item
-    '''
+    """These properties are used to sort the files into the item."""
     return (
         f.get('name'),
         f.get('SeriesNumber'),
@@ -76,11 +91,10 @@ def _sort_key(f):
 
 
 def removeUniqueMetadata(dicomMeta, additionalMeta):
-    '''
-    Return only the common data between the two inputs.
+    """Return only the common data between the two inputs.
     Only work if all the data element are hashable,
     this means not have any dict or list as properties
-    '''
+    """
     return dict(
         set(
             (
@@ -147,8 +161,7 @@ def parse_file(f):
 
 
 def handler(event):
-    """
-    Whenever an additional file is uploaded to a "DICOM item", remove any
+    """Whenever an additional file is uploaded to a "DICOM item", remove any
     DICOM metadata that is no longer common to all DICOM files in the item.
     """
     file = event.info['file']

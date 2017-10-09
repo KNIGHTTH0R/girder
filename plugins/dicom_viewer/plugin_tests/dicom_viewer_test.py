@@ -7,11 +7,17 @@ def setUpModule():
     base.enabledPlugins.append('dicom_viewer')
     base.startServer()
     global removeUniqueMetadata
-    from girder.plugins.dicom_viewer import removeUniqueMetadata
+    global _extractFileData
+    from girder.plugins.dicom_viewer import removeUniqueMetadata, _extractFileData
 
 
 def tearDownModule():
     base.stopServer()
+
+
+def purgeDicomItem(item):
+    item.pop('dicom')
+    return item
 
 
 class DicomViewerTest(base.TestCase):
@@ -51,6 +57,42 @@ class DicomViewerTest(base.TestCase):
             'key5': 54
         }
         self.assertEqual(removeUniqueMetadata(dicomMeta, additionalMeta), commonMeta)
+
+    def testExtractFileData(self):
+        dicomFile = {
+            '_id': '599c4cf3c9c5cb11f1ff5d97',
+            'assetstoreId': '599c4a19c9c5cb11f1ff5d32',
+            'creatorId': '5984b9fec9c5cb370447068c',
+            'exts': ['dcm'],
+            'itemId': '599c4cf3c9c5cb11f1ff5d96',
+            'mimeType': 'application/dicom',
+            'name': '000000.dcm',
+            'size': 133356
+        }
+        dicomMeta = {
+            'SeriesNumber': 1,
+            'InstanceNumber': 1,
+            'SliceLocation': 0
+        }
+        result = {
+            '_id': '599c4cf3c9c5cb11f1ff5d97',
+            'name': '000000.dcm',
+            'SeriesNumber': 1,
+            'InstanceNumber': 1,
+            'SliceLocation': 0
+        }
+        self.assertEqual(_extractFileData(dicomFile, dicomMeta), result)
+
+    # def testMakeDicomItem(self):
+    #     admin, user = self.users
+    #     dicomItem = self.model('item').load('599c4cf3c9c5cb11f1ff5d96', force=True)
+    #     dicomItem = purgeDicomItem(dicomItem)
+    #     #dicomFile = self.model('file').load('599c4cf3c9c5cb11f1ff5d97', force=True)
+    #     path = '/item/%s/parseDicom' % dicomItem.get('_id')
+    #     resp = self.request(path=path, user=admin)
+    #     self.assertStatusOk(resp)
+
+    #     TraitedDicomItem = self.model('item').load('599c4cf3c9c5cb11f1ff5d96', force=True)
 
     def testDicomViewer(self):
         admin, user = self.users
