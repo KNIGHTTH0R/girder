@@ -143,60 +143,54 @@ def server(server):
     yield server
 
 
-def testAccessEndpoints(server, admin, user):
-    endpoints = [
-        ("/accesstest/default_access", "admin"),
-        ("/accesstest/admin_access", "admin"),
-        ("/accesstest/user_access", "user"),
-        ("/accesstest/public_access", "public"),
-        ("/accesstest/default_function_access", "admin"),
-        ("/accesstest/admin_function_access", "admin"),
-        ("/accesstest/user_function_access", "user"),
-        ("/accesstest/public_function_access", "public"),
-    ]
-    for endpoint in endpoints:
-        resp = server.request(path=endpoint[0], method='GET', user=None)
-        if endpoint[1] in ("public", ):
-            assertStatusOk(resp)
-        else:
-            assertStatus(resp, 401)
-        resp = server.request(path=endpoint[0], method='GET', user=user)
-        if endpoint[1] in ("public", "user"):
-            assertStatusOk(resp)
-        else:
-            assertStatus(resp, 403)
-        resp = server.request(path=endpoint[0], method='GET', user=admin)
-        if endpoint[1] in ("public", "user", "admin"):
-            assertStatusOk(resp)
-        else:
-            assertStatus(resp, 403)
+@pytest.mark.parametrize('endpoint',
+                         [("/accesstest/default_access", "admin"),
+                          ("/accesstest/admin_access", "admin"),
+                          ("/accesstest/user_access", "user"),
+                          ("/accesstest/public_access", "public"),
+                          ("/accesstest/default_function_access", "admin"),
+                          ("/accesstest/admin_function_access", "admin"),
+                          ("/accesstest/user_function_access", "user"),
+                          ("/accesstest/public_function_access", "public")])
+def testAccessEndpoints(endpoint, server, admin, user):
+    resp = server.request(path=endpoint[0], method='GET', user=None)
+    if endpoint[1] in ("public", ):
+        assertStatusOk(resp)
+    else:
+        assertStatus(resp, 401)
+    resp = server.request(path=endpoint[0], method='GET', user=user)
+    if endpoint[1] in ("public", "user"):
+        assertStatusOk(resp)
+    else:
+        assertStatus(resp, 403)
+    resp = server.request(path=endpoint[0], method='GET', user=admin)
+    if endpoint[1] in ("public", "user", "admin"):
+        assertStatusOk(resp)
+    else:
+        assertStatus(resp, 403)
 
 
-def testCookieAuth(server, model, user):
+@pytest.mark.parametrize('decorator', ['cookie_auth', 'cookie_force_auth'])
+@pytest.mark.parametrize('method', ['GET', 'POST'])
+def testCookieAuth(decorator, method, server, model, user):
     # No auth should always be rejected
-    for decorator in ['cookie_auth', 'cookie_force_auth']:
-        for method in ['GET', 'POST']:
-            resp = server.request(path='/accesstest/%s' % decorator,
-                                method=method)
-            assertStatus(resp, 401)
+    resp = server.request(path='/accesstest/%s' % decorator,
+                          method=method)
+    assertStatus(resp, 401)
 
     # Token auth should always still succeed
-    for decorator in ['cookie_auth', 'cookie_force_auth']:
-        for method in ['GET', 'POST']:
-            resp = server.request(path='/accesstest/%s' % decorator,
-                                method=method, user=user)
-            assertStatusOk(resp)
+    resp = server.request(path='/accesstest/%s' % decorator,
+                          method=method, user=user)
+    assertStatusOk(resp)
 
     # Cookie auth should succeed unless POSTing to non-force endpoint
     cookie = 'girderToken=%s' % str(model('token').createToken(user)['_id'])
-    for decorator in ['cookie_auth', 'cookie_force_auth']:
-        for method in ['GET', 'POST']:
-            resp = server.request(path='/accesstest/%s' % decorator,
-                                method=method, cookie=cookie)
-            if decorator == 'cookie_auth' and method != 'GET':
-                assertStatus(resp, 401)
-            else:
-                assertStatusOk(resp)
+    resp = server.request(path='/accesstest/%s' % decorator,
+                          method=method, cookie=cookie)
+    if decorator == 'cookie_auth' and method != 'GET':
+        assertStatus(resp, 401)
+    else:
+        assertStatusOk(resp)
 
 
 def testLoadModelDecorator(server, user):

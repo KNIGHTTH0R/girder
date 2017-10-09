@@ -24,7 +24,7 @@ def db(request):
     semantics are handled by the --drop-db option.
     """
     dbUri = request.config.getoption('--mongo-uri')
-    dbName = 'girder_test_%s' % request.function.__name__
+    dbName = 'girder_test_%s' % request.node.name
     dropDb = request.config.getoption('--drop-db')
     connection = getDbConnection(uri='%s/%s' % (dbUri, dbName), quiet=False)
 
